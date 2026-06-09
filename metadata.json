@@ -1,0 +1,6 @@
+{
+  "name": "Portal Kelulusan Training",
+  "description": "Dashboard pencarian kelulusan dan unduh sertifikat training karyawan Batch 1 - 6",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
