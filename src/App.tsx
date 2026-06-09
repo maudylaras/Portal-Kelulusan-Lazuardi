@@ -7,6 +7,8 @@ import { Batch } from './types';
 import { Shield, Sparkles, LogOut, Award, UserCheck } from 'lucide-react';
 import GoogleAuthModal, { GoogleUser } from './components/GoogleAuthModal';
 import LoginGate from './components/LoginGate';
+import { auth } from './lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 export default function App() {
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -32,22 +34,40 @@ export default function App() {
       localStorage.setItem('training_portal_batches', JSON.stringify(initialBatches));
     }
 
-    // Load active Google Account
-    const storedUser = localStorage.getItem('training_portal_user');
-    if (storedUser) {
-      try {
-        const parsed: GoogleUser = JSON.parse(storedUser);
-        setCurrentUser(parsed);
-        const emailLower = parsed.email.toLowerCase();
-        if (emailLower === 'maudy@lazuardi' || emailLower.includes('maudy@lazuardi')) {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
+    // Subscribe to Firebase Auth state changes
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        const email = firebaseUser.email || '';
+        const emailLower = email.toLowerCase();
+        
+        let displayName = firebaseUser.displayName;
+        if (!displayName) {
+          const storedProfile = localStorage.getItem(`profile_name_${emailLower}`);
+          displayName = storedProfile || email.split('@')[0].replace(/[\._]/g, ' ');
         }
-      } catch (e) {
-        console.error('Error loading stored Google user:', e);
+        
+        const formattedName = displayName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        const avatar = formattedName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'US';
+        
+        const isAdminAccount = emailLower === 'maudy@lazuardi.sch.id' || emailLower.includes('maudy@lazuardi');
+        const role = isAdminAccount ? 'Admin' : 'Guest';
+
+        const userObj: GoogleUser = {
+          name: formattedName,
+          email: email,
+          avatar: avatar,
+          role: role,
+        };
+        
+        setCurrentUser(userObj);
+        setIsAdmin(isAdminAccount);
+      } else {
+        setCurrentUser(null);
+        setIsAdmin(false);
       }
-    }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // Sync state back to localStorage
@@ -57,29 +77,24 @@ export default function App() {
     localStorage.setItem('training_portal_batches', JSON.stringify(nextBatches));
   };
 
-  const handleToggleAdmin = () => {
-    if (currentUser && (currentUser.email.toLowerCase() === 'maudy@lazuardi' || currentUser.email.toLowerCase().includes('maudy@lazuardi'))) {
-      setIsAdmin((prev) => !prev);
-    } else {
-      setIsAuthModalOpen(true);
-    }
-  };
-
   const handleLoginSuccess = (user: GoogleUser) => {
     setCurrentUser(user);
-    localStorage.setItem('training_portal_user', JSON.stringify(user));
     const emailLower = user.email.toLowerCase();
-    if (emailLower === 'maudy@lazuardi' || emailLower.includes('maudy@lazuardi')) {
+    if (emailLower === 'maudy@lazuardi.sch.id' || emailLower.includes('maudy@lazuardi')) {
       setIsAdmin(true);
     } else {
       setIsAdmin(false);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.error('Error during sign out:', e);
+    }
     setCurrentUser(null);
     setIsAdmin(false);
-    localStorage.removeItem('training_portal_user');
   };
 
   // Find the selected batch object if activeView starts with 'batch-'
