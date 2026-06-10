@@ -1,0 +1,116 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account registration and role details",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Unique identifier of the user (matching Auth UID)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the user"
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "emailLower": {
+          "type": "string",
+          "description": "Lowercase email address for indexing"
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "Avatar URL of the user"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role classification of the user",
+          "enum": ["user", "admin"]
+        },
+        "status": {
+          "type": "string",
+          "description": "Current status of the user account",
+          "enum": ["active", "suspended"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when user was created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last profile update"
+        },
+        "lastLoginAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last login"
+        }
+      },
+      "required": ["uid", "name", "email", "emailLower", "role", "status", "createdAt", "updatedAt"]
+    },
+    "Training": {
+      "title": "Training",
+      "description": "A single training topic inside a training batch",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "coachName": { "type": "string" },
+        "coachCertUrl": { "type": "string" },
+        "assistantName": { "type": "string" },
+        "assistantCertUrl": { "type": "string" }
+      },
+      "required": ["id", "title", "coachName", "coachCertUrl", "assistantName", "assistantCertUrl"]
+    },
+    "Participant": {
+      "title": "Participant",
+      "description": "An employee registered for a training inside a batch",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "email": { "type": "string" },
+        "trainingId": { "type": "string" },
+        "trainingTitle": { "type": "string" },
+        "status": { "type": "string", "enum": ["Lulus", "Tidak Lulus"] },
+        "certUrl": { "type": "string" }
+      },
+      "required": ["id", "employeeName", "email", "trainingId", "trainingTitle", "status", "certUrl"]
+    },
+    "Batch": {
+      "title": "Batch",
+      "description": "A collection of trainings and participants in a single batch",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "trainings": {
+          "type": "array"
+        },
+        "participants": {
+          "type": "array"
+        }
+      },
+      "required": ["id", "name", "trainings", "participants"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Primary user configuration records matched to Firebase Auth UID"
+    },
+    "batches/{batchId}": {
+      "schema": "Batch",
+      "description": "Training program batches"
+    }
+  }
+}

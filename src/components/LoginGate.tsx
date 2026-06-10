@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shield, AlertTriangle, ArrowRight, User, Mail } from 'lucide-react';
 import { GoogleUser } from './GoogleAuthModal';
 import { auth } from '../lib/firebase';
@@ -9,16 +9,24 @@ import {
 
 interface LoginGateProps {
   onLoginSuccess: (user: GoogleUser) => void;
+  initialErrorMessage?: string;
 }
 
-export default function LoginGate({ onLoginSuccess }: LoginGateProps) {
+export default function LoginGate({ onLoginSuccess, initialErrorMessage }: LoginGateProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState(initialErrorMessage || '');
   const [showSimulatedFallback, setShowSimulatedFallback] = useState(false);
   const [customSimEmail, setCustomSimEmail] = useState('');
   const [customSimName, setCustomSimName] = useState('');
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'google' | 'simulated'>('google');
+
+  useEffect(() => {
+    if (initialErrorMessage) {
+      setErrorMessage(initialErrorMessage);
+    }
+  }, [initialErrorMessage]);
+
 
   const defaultAccounts: GoogleUser[] = [
     {

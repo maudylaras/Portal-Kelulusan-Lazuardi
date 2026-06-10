@@ -7,8 +7,9 @@ import { Batch } from './types';
 import { Shield, Sparkles, LogOut, Award, UserCheck } from 'lucide-react';
 import GoogleAuthModal, { GoogleUser } from './components/GoogleAuthModal';
 import LoginGate from './components/LoginGate';
-import { auth } from './lib/firebase';
+import { auth, db, handleFirestoreError, OperationType } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, getDocs } from 'firebase/firestore';
 
 export default function App() {
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -17,73 +18,246 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<GoogleUser | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
+  
+  // Custom states for durable cloud persistence tracking and error handling
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [isCheckingUserDoc, setIsCheckingUserDoc] = useState<boolean>(false);
+  const [isBatchesLoading, setIsBatchesLoading] = useState<boolean>(false);
+  const [authError, setAuthError] = useState<string>('');
+  const [batchesError, setBatchesError] = useState<string>('');
+
+  // Function to load batches from Firestore
+  const loadBatchesFromFirestore = async (userRole: string) => {
+    setIsBatchesLoading(true);
+    setBatchesError('');
+    try {
+      const batchesCol = collection(db, 'batches');
+      let querySnapshot;
+      try {
+        querySnapshot = await getDocs(batchesCol);
+      } catch (getErr: any) {
+        // Requirement 12: If Firestore returns permission-denied, do not treat it as an empty collection.
+        handleFirestoreError(getErr, OperationType.GET, 'batches');
+      }
+
+      if (querySnapshot.empty) {
+        // Requirement 11: Only initialize default batch data after confirming:
+        // - the logged-in user role is "admin"
+        // - the batches collection is truly empty
+        if (userRole === 'admin' || userRole === 'Admin') {
+          const initialList = [...initialBatches];
+          for (const b of initialList) {
+            await setDoc(doc(db, 'batches', b.id), b);
+          }
+          setBatches(initialList);
+          localStorage.setItem('training_portal_batches', JSON.stringify(initialList));
+        } else {
+          setBatches([]);
+        }
+      } else {
+        const loaded: Batch[] = [];
+        querySnapshot.forEach((docSnap) => {
+          loaded.push(docSnap.data() as Batch);
+        });
+        loaded.sort((a, b) => a.id.localeCompare(b.id));
+        setBatches(loaded);
+        localStorage.setItem('training_portal_batches', JSON.stringify(loaded));
+      }
+    } catch (error: any) {
+      console.error("Gagal mengambil data dari Firestore:", error);
+      // Requirement 15: Add Indonesian error messages
+      let msg = "Database belum dapat dimuat. Silakan refresh halaman.";
+      if (error.message && (error.message.includes("permission") || error.message.includes("Missing or insufficient permissions"))) {
+        msg = "Anda tidak memiliki izin untuk mengakses data ini.";
+      } else if (error.message && error.message.includes("Role admin")) {
+        msg = "Role admin belum terdaftar di Firestore.";
+      }
+      setBatchesError(msg);
+    } finally {
+      setIsBatchesLoading(false);
+    }
+  };
 
   // Initialize data and loaded Google User on mount
   useEffect(() => {
-    // Load training batches
-    const storedData = localStorage.getItem('training_portal_batches');
-    if (storedData) {
-      try {
-        setBatches(JSON.parse(storedData));
-      } catch (e) {
-        console.error('Error loading stored training batches, resetting to defaults.', e);
-        setBatches(initialBatches);
-      }
-    } else {
-      setBatches(initialBatches);
-      localStorage.setItem('training_portal_batches', JSON.stringify(initialBatches));
-    }
-
+    // 10. Only call getDocs(collection(db, "batches")) after Firebase Auth state is fully ready.
     // Subscribe to Firebase Auth state changes
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setAuthError('');
+      setBatchesError('');
+      
       if (firebaseUser) {
-        const email = firebaseUser.email || '';
-        const emailLower = email.toLowerCase();
-        
-        let displayName = firebaseUser.displayName;
-        if (!displayName) {
-          const storedProfile = localStorage.getItem(`profile_name_${emailLower}`);
-          displayName = storedProfile || email.split('@')[0].replace(/[\._]/g, ' ');
-        }
-        
-        const formattedName = displayName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-        const avatar = formattedName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'US';
-        
-        const isAdminAccount = emailLower === 'maudy@lazuardi.sch.id' || emailLower.includes('maudy@lazuardi');
-        const role = isAdminAccount ? 'Admin' : 'Guest';
+        setIsCheckingUserDoc(true);
+        try {
+          const uid = firebaseUser.uid;
+          const userDocRef = doc(db, 'users', uid);
+          
+          let docSnap;
+          try {
+            docSnap = await getDoc(userDocRef);
+          } catch (getErr) {
+            handleFirestoreError(getErr, OperationType.GET, 'users/' + uid);
+          }
 
-        const userObj: GoogleUser = {
-          name: formattedName,
-          email: email,
-          avatar: avatar,
-          role: role,
-        };
-        
-        setCurrentUser(userObj);
-        setIsAdmin(isAdminAccount);
+          let dbRole = 'user';
+          const emailLower = (firebaseUser.email || '').toLowerCase();
+          const isAdminEmail = emailLower === 'maudy@lazuardi.sch.id' || emailLower.includes('maudy@lazuardi');
+
+          // If the user document does not exist, create it automatically
+          if (!docSnap.exists()) {
+            dbRole = isAdminEmail ? 'admin' : 'user';
+
+            const newUserDoc = {
+              uid: uid,
+              name: firebaseUser.displayName || emailLower.split('@')[0].replace(/[\._]/g, ' '),
+              email: firebaseUser.email || '',
+              emailLower: emailLower,
+              photoURL: firebaseUser.photoURL || '',
+              role: dbRole,
+              status: "active",
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              lastLoginAt: serverTimestamp()
+            };
+
+            try {
+              await setDoc(userDocRef, newUserDoc);
+            } catch (setErr) {
+              handleFirestoreError(setErr, OperationType.CREATE, 'users/' + uid);
+            }
+          } else {
+            // If user document already exists, don't recreate it to preserve current role
+            const existingData = docSnap.data();
+            dbRole = existingData.role || 'user';
+
+            // Check if admin email does not have admin role
+            if (isAdminEmail && dbRole !== 'admin') {
+              // Ensure we check and escalate if it's the official administrator maudy
+              dbRole = 'admin';
+              try {
+                await updateDoc(userDocRef, { role: 'admin' });
+              } catch (updErr) {
+                handleFirestoreError(updErr, OperationType.UPDATE, 'users/' + uid);
+              }
+            }
+
+            // Update safety light info on login
+            const updatePayload: any = {
+              lastLoginAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            };
+            if (firebaseUser.photoURL && firebaseUser.photoURL !== existingData.photoURL) {
+              updatePayload.photoURL = firebaseUser.photoURL;
+            }
+            try {
+              await updateDoc(userDocRef, updatePayload);
+            } catch (updErr) {
+              handleFirestoreError(updErr, OperationType.UPDATE, 'users/' + uid);
+            }
+          }
+
+          // Role admin verification: if admin email has been registered incorrectly or blocked
+          if (isAdminEmail && dbRole !== 'admin') {
+            throw new Error("Role admin belum terdaftar di Firestore.");
+          }
+
+          const isDbAdmin = dbRole === 'admin' || dbRole === 'Admin';
+          const reactRole = isDbAdmin ? 'Admin' : 'Staff';
+
+          let finalName = firebaseUser.displayName;
+          if (!finalName) {
+            const storedProfile = localStorage.getItem(`profile_name_${emailLower}`);
+            finalName = storedProfile || emailLower.split('@')[0].replace(/[\._]/g, ' ');
+          }
+          const formattedName = finalName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+          const avatar = formattedName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() || 'US';
+
+          const userObj: GoogleUser = {
+            name: formattedName,
+            email: firebaseUser.email || '',
+            avatar: avatar,
+            role: reactRole as any,
+            uid: uid
+          };
+
+          setCurrentUser(userObj);
+          setIsAdmin(isDbAdmin);
+          setIsCheckingUserDoc(false);
+
+          // Now start fetching batches only after Auth setup is solid
+          await loadBatchesFromFirestore(dbRole);
+
+        } catch (error: any) {
+          console.error("Firestore user verification/sync error:", error);
+          let friendlyError = "Data akun belum dapat dibuat. Silakan hubungi admin.";
+          if (error.message && (error.message.includes("permission") || error.message.includes("insufficient permissions"))) {
+            friendlyError = "Anda tidak memiliki izin untuk mengakses data ini.";
+          } else if (error.message && error.message.includes("Role admin")) {
+            friendlyError = "Role admin belum terdaftar di Firestore.";
+          }
+          setAuthError(friendlyError);
+          try {
+            await signOut(auth);
+          } catch (soErr) {
+            console.error("Sign-out failed:", soErr);
+          }
+          setCurrentUser(null);
+          setIsAdmin(false);
+          setIsCheckingUserDoc(false);
+        } finally {
+          setIsAuthLoading(false);
+        }
       } else {
-        setCurrentUser(null);
-        setIsAdmin(false);
+        // Keep simulated bypass user if loaded previously (does not have a uid)
+        setCurrentUser((prev) => {
+          if (prev && !prev.uid) {
+            return prev;
+          }
+          return null;
+        });
+        setIsAdmin((prev) => {
+          return auth.currentUser ? false : prev;
+        });
+        setIsAuthLoading(false);
+        setIsCheckingUserDoc(false);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Sync state back to localStorage
-  const handleUpdateBatch = (updatedBatch: Batch) => {
+  // Sync state back to localStorage and write to Firestore if admin is authenticated
+  const handleUpdateBatch = async (updatedBatch: Batch) => {
     const nextBatches = batches.map((b) => (b.id === updatedBatch.id ? updatedBatch : b));
     setBatches(nextBatches);
     localStorage.setItem('training_portal_batches', JSON.stringify(nextBatches));
+
+    if (auth.currentUser && isAdmin) {
+      try {
+        await setDoc(doc(db, 'batches', updatedBatch.id), updatedBatch);
+      } catch (error) {
+        console.error("Failed to save batch updates to Firestore:", error);
+        alert("Gagal menyimpan perubahan ke Firestore. Silakan hubungi admin.");
+      }
+    }
   };
 
   const handleLoginSuccess = (user: GoogleUser) => {
     setCurrentUser(user);
     const emailLower = user.email.toLowerCase();
-    if (emailLower === 'maudy@lazuardi.sch.id' || emailLower.includes('maudy@lazuardi')) {
-      setIsAdmin(true);
+    const isMaudy = emailLower === 'maudy@lazuardi.sch.id' || emailLower.includes('maudy@lazuardi');
+    setIsAdmin(isMaudy);
+
+    // Load local storage fallback for simulation accounts
+    const storedData = localStorage.getItem('training_portal_batches');
+    if (storedData) {
+      try {
+        setBatches(JSON.parse(storedData));
+      } catch (e) {
+        setBatches(initialBatches);
+      }
     } else {
-      setIsAdmin(false);
+      setBatches(initialBatches);
     }
   };
 
@@ -100,11 +274,63 @@ export default function App() {
   // Find the selected batch object if activeView starts with 'batch-'
   const selectedBatch = batches.find((b) => b.id === activeView);
 
+  if (isAuthLoading || isCheckingUserDoc || isBatchesLoading) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden font-sans">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-slate-500/10 rounded-full blur-[120px] pointer-events-none"></div>
+        <div className="w-full max-w-md z-10 text-center flex flex-col items-center justify-center min-h-[220px]">
+          <div className="relative flex items-center justify-center mb-6">
+            <span className="absolute inline-flex h-12 w-12 rounded-full bg-sky-500/20 animate-ping"></span>
+            <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <p className="text-sm font-bold text-slate-200">
+            {isAuthLoading ? "Memverifikasi Autentikasi..." : 
+             isCheckingUserDoc ? "Pengecekan Profil Karyawan..." : 
+             "Sinkronisasi Database Pelatihan..."}
+          </p>
+          <p className="text-xs text-slate-500 mt-2 font-mono">Lazuardi Portal Keamanan Berbasis Firestore</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Indonesian security or connection error handler screen
+  if (authError || batchesError) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden font-sans">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-500/5 rounded-full blur-[120px] pointer-events-none"></div>
+        <div className="w-full max-w-sm z-10 text-center bg-[#0f172a] border border-red-500/20 p-8 rounded-2xl shadow-xl flex flex-col items-center">
+          <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20 mb-4 animate-pulse">
+            <Shield className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-white mb-2">Terjadi Hambatan Akses</h3>
+          <p className="text-xs text-slate-300 leading-relaxed font-sans">{authError || batchesError}</p>
+          
+          <div className="flex gap-3 w-full mt-6">
+            <button
+              onClick={() => window.location.reload()}
+              className="flex-1 px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl text-[11px] font-semibold text-slate-300 transition-colors"
+            >
+              Refresh Halaman
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 font-semibold rounded-xl text-[11px] text-white transition-colors"
+            >
+              Keluar Sesi
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!currentUser) {
-    return <LoginGate onLoginSuccess={handleLoginSuccess} />;
+    return <LoginGate onLoginSuccess={handleLoginSuccess} initialErrorMessage={authError} />;
   }
 
   return (
+
     <div className="flex bg-[#020617] text-slate-200 min-h-screen relative antialiased leading-normal font-sans">
       {/* Sidebar with elegant dark blue-slate background */}
       <Sidebar

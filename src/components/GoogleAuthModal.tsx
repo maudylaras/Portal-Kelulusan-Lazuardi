@@ -11,6 +11,7 @@ export interface GoogleUser {
   email: string;
   avatar: string;
   role: 'Admin' | 'Staff' | 'Guest';
+  uid?: string;
 }
 
 interface GoogleAuthModalProps {
