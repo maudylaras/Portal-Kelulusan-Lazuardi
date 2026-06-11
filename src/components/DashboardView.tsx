@@ -22,6 +22,8 @@ export default function DashboardView({ batches, onGoToBatch }: DashboardViewPro
           batchName: batch.name,
           coachName: training?.coachName || '-',
           assistantName: training?.assistantName || '-',
+          coach2Name: training?.coach2Name,
+          assistant2Name: training?.assistant2Name,
         };
       })
     );
@@ -199,8 +201,8 @@ export default function DashboardView({ batches, onGoToBatch }: DashboardViewPro
                           Training: <span className="text-sky-300 font-bold">{p.trainingTitle}</span>
                         </p>
                         <div className="mt-2 text-xs text-slate-400 space-y-0.5">
-                          <div>Coach: <span className="font-semibold text-slate-300">{p.coachName}</span></div>
-                          <div>Asisten Coach: <span className="font-semibold text-slate-300">{p.assistantName}</span></div>
+                          <div>Coach: <span className="font-semibold text-slate-300">{p.coachName}{p.coach2Name ? ` & ${p.coach2Name}` : ''}</span></div>
+                          <div>Asisten Coach: <span className="font-semibold text-slate-300">{p.assistantName}{p.assistant2Name ? ` & ${p.assistant2Name}` : ''}</span></div>
                         </div>
                       </div>
 

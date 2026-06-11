@@ -5,6 +5,10 @@ export interface Training {
   coachCertUrl: string;
   assistantName: string;
   assistantCertUrl: string;
+  coach2Name?: string;
+  coach2CertUrl?: string;
+  assistant2Name?: string;
+  assistant2CertUrl?: string;
 }
 
 export interface Participant {

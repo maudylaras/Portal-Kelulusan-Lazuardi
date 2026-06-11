@@ -41,6 +41,10 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
   const [newCoachCert, setNewCoachCert] = useState('');
   const [newAssistantName, setNewAssistantName] = useState('');
   const [newAssistantCert, setNewAssistantCert] = useState('');
+  const [newCoach2Name, setNewCoach2Name] = useState('');
+  const [newCoach2CertUrl, setNewCoach2CertUrl] = useState('');
+  const [newAssistant2Name, setNewAssistant2Name] = useState('');
+  const [newAssistant2CertUrl, setNewAssistant2CertUrl] = useState('');
 
   // Participant form states
   const [newParticipantName, setNewParticipantName] = useState('');
@@ -62,6 +66,10 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
   const [editCoachCert, setEditCoachCert] = useState('');
   const [editAssistantName, setEditAssistantName] = useState('');
   const [editAssistantCert, setEditAssistantCert] = useState('');
+  const [editCoach2Name, setEditCoach2Name] = useState('');
+  const [editCoach2CertUrl, setEditCoach2CertUrl] = useState('');
+  const [editAssistant2Name, setEditAssistant2Name] = useState('');
+  const [editAssistant2CertUrl, setEditAssistant2CertUrl] = useState('');
 
   // Add a new training
   const handleAddTraining = (e: React.FormEvent) => {
@@ -76,6 +84,10 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
       coachCertUrl: newCoachCert || 'https://drive.google.com',
       assistantName: newAssistantName || '-',
       assistantCertUrl: newAssistantCert || 'https://drive.google.com',
+      coach2Name: newCoach2Name.trim() || undefined,
+      coach2CertUrl: newCoach2CertUrl.trim() || undefined,
+      assistant2Name: newAssistant2Name.trim() || undefined,
+      assistant2CertUrl: newAssistant2CertUrl.trim() || undefined,
     };
 
     const updatedBatch: Batch = {
@@ -91,6 +103,10 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
     setNewCoachCert('');
     setNewAssistantName('');
     setNewAssistantCert('');
+    setNewCoach2Name('');
+    setNewCoach2CertUrl('');
+    setNewAssistant2Name('');
+    setNewAssistant2CertUrl('');
     setShowAddTraining(false);
   };
 
@@ -194,6 +210,10 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
     setEditCoachCert(t.coachCertUrl);
     setEditAssistantName(t.assistantName);
     setEditAssistantCert(t.assistantCertUrl);
+    setEditCoach2Name(t.coach2Name || '');
+    setEditCoach2CertUrl(t.coach2CertUrl || '');
+    setEditAssistant2Name(t.assistant2Name || '');
+    setEditAssistant2CertUrl(t.assistant2CertUrl || '');
   };
 
   // Save edit training
@@ -207,6 +227,10 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
           coachCertUrl: editCoachCert,
           assistantName: editAssistantName,
           assistantCertUrl: editAssistantCert,
+          coach2Name: editCoach2Name.trim() || undefined,
+          coach2CertUrl: editCoach2CertUrl.trim() || undefined,
+          assistant2Name: editAssistant2Name.trim() || undefined,
+          assistant2CertUrl: editAssistant2CertUrl.trim() || undefined,
         };
       }
       return t;
@@ -437,6 +461,61 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
                   />
                 </div>
               </div>
+
+              {/* Special Case: Coach 2 & Assistant 2 */}
+              <div className="grid grid-cols-2 gap-2 md:col-span-2 border-t border-slate-805/50 pt-3">
+                <span className="col-span-2 text-[10px] font-extrabold tracking-wider text-amber-400 uppercase">
+                  Kasus Khusus / Tambahan Mandiri (Coach 2 &amp; Asisten 2)
+                </span>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">
+                    Nama Coach Kedua (Coach 2)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Nama Coach 2 (Khusus)"
+                    value={newCoach2Name}
+                    onChange={(e) => setNewCoach2Name(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">
+                    Link Sertifikat Coach Kedua
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="Link GDrive"
+                    value={newCoach2CertUrl}
+                    onChange={(e) => setNewCoach2CertUrl(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                </div>
+                <div className="mt-2 text-left">
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">
+                    Nama Asisten Kedua (Asisten 2)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Nama Asisten 2 (Khusus)"
+                    value={newAssistant2Name}
+                    onChange={(e) => setNewAssistant2Name(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                </div>
+                <div className="mt-2 text-left">
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">
+                    Link Sertifikat Asisten Kedua
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="Link GDrive"
+                    value={newAssistant2CertUrl}
+                    onChange={(e) => setNewAssistant2CertUrl(e.target.value)}
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-white focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                </div>
+              </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button
@@ -534,6 +613,52 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
                         </div>
                       </div>
 
+                      <div className="grid grid-cols-2 gap-2 border-t border-slate-800/60 pt-2.5">
+                        <div>
+                          <label className="block text-[10px] font-bold text-amber-500 uppercase">Coach 2 (Opsional)</label>
+                          <input
+                            type="text"
+                            value={editCoach2Name}
+                            onChange={(e) => setEditCoach2Name(e.target.value)}
+                            placeholder="Nama Coach 2"
+                            className="w-full text-xs p-1.5 border border-slate-800 bg-slate-950 text-white rounded focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-amber-500 uppercase">Coach 2 Cert Link</label>
+                          <input
+                            type="text"
+                            value={editCoach2CertUrl}
+                            onChange={(e) => setEditCoach2CertUrl(e.target.value)}
+                            placeholder="Link GDrive"
+                            className="w-full text-xs p-1.5 border border-slate-800 bg-slate-950 text-white rounded focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-450 uppercase">Asisten 2 (Opsional)</label>
+                          <input
+                            type="text"
+                            value={editAssistant2Name}
+                            onChange={(e) => setEditAssistant2Name(e.target.value)}
+                            placeholder="Nama Asisten 2"
+                            className="w-full text-xs p-1.5 border border-slate-800 bg-slate-950 text-white rounded focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-455 uppercase">Asisten 2 Cert Link</label>
+                          <input
+                            type="text"
+                            value={editAssistant2CertUrl}
+                            onChange={(e) => setEditAssistant2CertUrl(e.target.value)}
+                            placeholder="Link GDrive"
+                            className="w-full text-xs p-1.5 border border-slate-800 bg-slate-950 text-white rounded focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
                       <div className="flex justify-end gap-2 pt-2">
                         <button
                           onClick={() => saveEditTraining(t.id)}
@@ -610,6 +735,54 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
                             <Download className="w-3 h-3" /> Unduh Sertifikat
                           </a>
                         </div>
+
+                        {/* Coach 2 Box (Special Case) */}
+                        {t.coach2Name && (
+                          <div className="p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/20 flex flex-col justify-between min-h-[85px]">
+                            <div>
+                              <span className="text-[9px] uppercase tracking-wider font-extrabold text-amber-400">
+                                Coach Kedua (Coach 2)
+                              </span>
+                              <p className="text-xs font-bold text-slate-200 mt-0.5 line-clamp-1">{t.coach2Name}</p>
+                            </div>
+                            {t.coach2CertUrl ? (
+                              <a
+                                href={t.coach2CertUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 mt-2 text-[11px] font-bold text-amber-400 hover:text-amber-300 hover:underline"
+                              >
+                                <Download className="w-3 h-3" /> Unduh Sertifikat 2
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-slate-500 italic mt-2">Sertifikat GDrive tidak ada</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Assistant 2 Box (Special Case) */}
+                        {t.assistant2Name && (
+                          <div className="p-2.5 rounded-lg bg-amber-500/5 border border-amber-500/20 flex flex-col justify-between min-h-[85px]">
+                            <div>
+                              <span className="text-[9px] uppercase tracking-wider font-extrabold text-amber-400">
+                                Asisten Kedua (Asisten 2)
+                              </span>
+                              <p className="text-xs font-bold text-slate-200 mt-0.5 line-clamp-1">{t.assistant2Name}</p>
+                            </div>
+                            {t.assistant2CertUrl ? (
+                              <a
+                                href={t.assistant2CertUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 mt-2 text-[11px] font-bold text-amber-400 hover:text-amber-300 hover:underline"
+                              >
+                                <Download className="w-3 h-3" /> Unduh Sertifikat 2
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-slate-500 italic mt-2">Sertifikat GDrive tidak ada</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
