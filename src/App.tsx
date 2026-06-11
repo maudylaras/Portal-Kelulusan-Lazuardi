@@ -341,6 +341,7 @@ export default function App() {
         onLoginClick={() => setIsAuthModalOpen(true)}
         isOpen={isMobileSidebarOpen}
         onClose={() => setIsMobileSidebarOpen(false)}
+        batches={batches}
       />
 
       {/* Mobile Sidebar backdrop */}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Home, Award, Lock, Unlock, Shield, Users, X } from 'lucide-react';
 import { GoogleUser } from './GoogleAuthModal';
+import { Batch } from '../types';
 
 interface SidebarProps {
   activeView: string; // 'dashboard' or 'batch-1', 'batch-2', etc.
@@ -10,6 +11,7 @@ interface SidebarProps {
   onLoginClick: () => void;
   isOpen?: boolean;
   onClose?: () => void;
+  batches: Batch[];
 }
 
 export default function Sidebar({
@@ -20,8 +22,8 @@ export default function Sidebar({
   onLoginClick,
   isOpen = false,
   onClose,
+  batches,
 }: SidebarProps) {
-  const batches = [1, 2, 3, 4, 5, 6];
 
   const handleNavClick = (view: string) => {
     onViewChange(view);
@@ -83,16 +85,15 @@ export default function Sidebar({
 
         <div>
           <span className="px-3 text-[10px] font-bold tracking-widest text-slate-500 uppercase block mb-3">
-            Daftar Batch Kelulusan
+            PROGRAM TRAINING
           </span>
           <div className="space-y-1.5">
-            {batches.map((num) => {
-              const viewId = `batch-${num}`;
-              const isSelected = activeView === viewId;
+            {batches.map((b) => {
+              const isSelected = activeView === b.id;
               return (
                 <button
-                  key={num}
-                  onClick={() => handleNavClick(viewId)}
+                  key={b.id}
+                  onClick={() => handleNavClick(b.id)}
                   className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${
                     isSelected
                       ? 'bg-sky-600/10 text-sky-400 border border-sky-500/20 shadow-lg'
@@ -106,7 +107,7 @@ export default function Sidebar({
                         : 'bg-emerald-500/70 group-hover:bg-emerald-400'
                     }`}
                   />
-                  <span>Batch {num}</span>
+                  <span>{b.name}</span>
                 </button>
               );
             })}

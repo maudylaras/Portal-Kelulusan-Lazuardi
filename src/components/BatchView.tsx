@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   Edit2,
@@ -23,6 +23,14 @@ interface BatchViewProps {
 }
 
 export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewProps) {
+  // Batch/Program name editing state
+  const [isEditingBatchName, setIsEditingBatchName] = useState(false);
+  const [editBatchName, setEditBatchName] = useState(batch.name);
+
+  useEffect(() => {
+    setEditBatchName(batch.name);
+  }, [batch.name]);
+
   // Local state for forms
   const [showAddTraining, setShowAddTraining] = useState(false);
   const [showAddParticipant, setShowAddParticipant] = useState(false);
@@ -45,6 +53,7 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
   const [editingParticipantId, setEditingParticipantId] = useState<string | null>(null);
   const [editStatus, setEditStatus] = useState<'Lulus' | 'Tidak Lulus'>('Lulus');
   const [editCertUrl, setEditCertUrl] = useState('');
+  const [editTrainingId, setEditTrainingId] = useState('');
 
   // Editing Training states
   const [editingTrainingId, setEditingTrainingId] = useState<string | null>(null);
@@ -148,14 +157,20 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
     setEditingParticipantId(p.id);
     setEditStatus(p.status);
     setEditCertUrl(p.certUrl);
+    setEditTrainingId(p.trainingId);
   };
 
   // Save inline edit participant
   const saveEditParticipant = (pId: string) => {
+    const matchedTraining = batch.trainings.find((t) => t.id === editTrainingId);
+    if (!matchedTraining) return;
+
     const updatedParticipants = batch.participants.map((p) => {
       if (p.id === pId) {
         return {
           ...p,
+          trainingId: editTrainingId,
+          trainingTitle: matchedTraining.title,
           status: editStatus,
           certUrl: editStatus === 'Lulus' ? editCertUrl : '',
         };
@@ -226,6 +241,16 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
     setEditingTrainingId(null);
   };
 
+  const handleSaveBatchName = () => {
+    if (!editBatchName.trim()) return;
+    const updatedBatch: Batch = {
+      ...batch,
+      name: editBatchName.trim(),
+    };
+    onUpdateBatch(updatedBatch);
+    setIsEditingBatchName(false);
+  };
+
   const activeGraduationCount = batch.participants.filter((p) => p.status === 'Lulus').length;
   const activePercent = batch.participants.length > 0 ? Math.round((activeGraduationCount / batch.participants.length) * 100) : 0;
 
@@ -238,7 +263,50 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
             <span className="text-xs font-bold text-sky-400 uppercase tracking-wider bg-sky-500/10 px-3 py-1 rounded-md border border-sky-500/20">
               Manajemen Kelompok
             </span>
-            <h2 className="text-2xl font-black mt-2 tracking-tight">{batch.name} - Portal Kelulusan</h2>
+            {isEditingBatchName ? (
+              <div className="flex items-center gap-2 mt-2">
+                <input
+                  type="text"
+                  value={editBatchName}
+                  onChange={(e) => setEditBatchName(e.target.value)}
+                  className="bg-[#0b1329] text-white font-bold text-xl px-3 py-1.5 rounded-lg border border-slate-700 focus:outline-none focus:border-sky-500 w-full max-w-sm"
+                  autoFocus
+                />
+                <button
+                  onClick={handleSaveBatchName}
+                  className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition"
+                  title="Simpan Nama Program"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    setEditBatchName(batch.name);
+                    setIsEditingBatchName(false);
+                  }}
+                  className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition"
+                  title="Batal"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 mt-2">
+                <h2 className="text-2xl font-black tracking-tight">{batch.name} - Portal Kelulusan</h2>
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      setEditBatchName(batch.name);
+                      setIsEditingBatchName(true);
+                    }}
+                    className="p-1.5 bg-slate-800/80 hover:bg-slate-700 text-sky-400 hover:text-sky-350 rounded-lg transition border border-slate-700"
+                    title="Ubah Nama Program Training"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
             <p className="text-xs text-slate-300 mt-1 leading-relaxed">
               Daftar program sertifikasi &amp; kepesertaan karyawan pada {batch.name}.
             </p>
@@ -740,7 +808,21 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
 
                       {/* Training Badge Title */}
                       <td className="px-5 py-4">
-                        <div className="font-medium text-slate-300 line-clamp-2 max-w-xs">{p.trainingTitle}</div>
+                        {isEditing ? (
+                          <select
+                            value={editTrainingId}
+                            onChange={(e) => setEditTrainingId(e.target.value)}
+                            className="text-xs bg-slate-950 text-white border border-slate-800 p-1.5 rounded focus:outline-none focus:ring-1 focus:ring-sky-500 w-full max-w-xs"
+                          >
+                            {batch.trainings.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.title}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="font-medium text-slate-300 line-clamp-2 max-w-xs">{p.trainingTitle}</div>
+                        )}
                       </td>
 
                       {/* Status / Toggle (If Admin editing) */}
