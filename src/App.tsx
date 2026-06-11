@@ -233,10 +233,56 @@ export default function App() {
     localStorage.setItem('training_portal_batches', JSON.stringify(nextBatches));
 
     if (auth.currentUser && isAdmin) {
+      const adminUser = auth.currentUser;
+      const adminUid = adminUser.uid;
+      const adminEmail = adminUser.email || '';
+      let detectedRole = 'user';
+
       try {
-        await setDoc(doc(db, 'batches', updatedBatch.id), updatedBatch);
-      } catch (error) {
-        console.error("Failed to save batch updates to Firestore:", error);
+        // Retrieve admin profile's actual role from the correct 'users' collection dynamically of Firestore to verify
+        const userDocRef = doc(db, 'users', adminUid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          detectedRole = userDoc.data()?.role || 'user';
+        }
+
+        const isVerifiedAdmin = String(detectedRole).toLowerCase() === 'admin';
+        if (!isVerifiedAdmin) {
+          throw new Error(`Forbidden: Role pengguna tidak diizinkan untuk mengubah data training. Terbaca: "${detectedRole}"`);
+        }
+
+        // 8. Pastikan tidak ada field undefined saat menyimpan data training ke Firestore.
+        // Deep serialize/clean undefined fields via stringify & parse
+        const cleanedBatch = JSON.parse(JSON.stringify(updatedBatch));
+
+        await setDoc(doc(db, 'batches', updatedBatch.id), cleanedBatch);
+      } catch (error: any) {
+        // Determine action types based on whether the training list changed in size
+        const existingBatch = batches.find(b => b.id === updatedBatch.id);
+        const isDeleteAction = updatedBatch.trainings.length < (existingBatch?.trainings.length || 0);
+        const isCreateAction = updatedBatch.trainings.length > (existingBatch?.trainings.length || 0);
+        const operationType = isDeleteAction ? 'delete' : (isCreateAction ? 'create' : 'update');
+
+        // 7. Tambahkan console.error yang detail ketika gagal menyimpan
+        console.error("Firestore Save Error Details:", {
+          adminUid: adminUid,
+          adminEmail: adminEmail,
+          roleRead: detectedRole,
+          isAdminState: isAdmin,
+          collectionName: 'batches',
+          operationType: operationType,
+          firebaseError: error instanceof Error ? error.message : String(error),
+          firebaseErrorObject: error,
+          payload: updatedBatch
+        });
+
+        // Trigger the structured error wrapper to conform to skill specifications inside firebase.ts
+        try {
+          handleFirestoreError(error, OperationType.UPDATE, `batches/${updatedBatch.id}`);
+        } catch (wrappedErr) {
+          console.error("Structured error logged via handleFirestoreError wrapper:", wrappedErr);
+        }
+
         alert("Gagal menyimpan perubahan ke Firestore. Silakan hubungi admin.");
       }
     }
