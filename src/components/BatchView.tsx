@@ -55,6 +55,7 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
 
   // Editing Participant inline states
   const [editingParticipantId, setEditingParticipantId] = useState<string | null>(null);
+  const [editEmployeeName, setEditEmployeeName] = useState('');
   const [editStatus, setEditStatus] = useState<'Lulus' | 'Tidak Lulus'>('Lulus');
   const [editCertUrl, setEditCertUrl] = useState('');
   const [editTrainingId, setEditTrainingId] = useState('');
@@ -147,6 +148,13 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
 
   // Delete training & related participants
   const handleDeleteTraining = (trainingId: string) => {
+    const training = batch.trainings.find((t) => t.id === trainingId);
+    const trainingTitle = training ? training.title : '';
+    const isConfirmed = window.confirm(
+      `Apakah Anda yakin ingin menghapus Program Training "${trainingTitle}"?\n\nTindakan ini tidak dapat dibatalkan, dan seluruh data kelulusan peserta pada program training ini juga akan terhapus secara permanen.`
+    );
+    if (!isConfirmed) return;
+
     const updatedTrainings = batch.trainings.filter((t) => t.id !== trainingId);
     const updatedParticipants = batch.participants.filter((p) => p.trainingId !== trainingId);
 
@@ -160,6 +168,13 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
 
   // Delete participant
   const handleDeleteParticipant = (participantId: string) => {
+    const participant = batch.participants.find((p) => p.id === participantId);
+    const employeeName = participant ? participant.employeeName : '';
+    const isConfirmed = window.confirm(
+      `Apakah Anda yakin ingin menghapus data kelulusan karyawan "${employeeName}"?`
+    );
+    if (!isConfirmed) return;
+
     const updatedParticipants = batch.participants.filter((p) => p.id !== participantId);
     const updatedBatch: Batch = {
       ...batch,
@@ -171,6 +186,7 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
   // Begin inline edit participant
   const startEditParticipant = (p: Participant) => {
     setEditingParticipantId(p.id);
+    setEditEmployeeName(p.employeeName);
     setEditStatus(p.status);
     setEditCertUrl(p.certUrl);
     setEditTrainingId(p.trainingId);
@@ -185,6 +201,7 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
       if (p.id === pId) {
         return {
           ...p,
+          employeeName: editEmployeeName.trim() || p.employeeName,
           trainingId: editTrainingId,
           trainingTitle: matchedTraining.title,
           status: editStatus,
@@ -975,7 +992,17 @@ export default function BatchView({ batch, isAdmin, onUpdateBatch }: BatchViewPr
                     <tr key={p.id} className="hover:bg-slate-800/35 transition-colors">
                       {/* Name / Email */}
                       <td className="px-5 py-4 whitespace-nowrap">
-                        <div className="font-bold text-white">{p.employeeName}</div>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editEmployeeName}
+                            onChange={(e) => setEditEmployeeName(e.target.value)}
+                            className="w-full text-xs font-bold p-1.5 border border-slate-800 bg-[#060b13] text-white rounded focus:outline-none focus:ring-1 focus:ring-sky-500 mb-1"
+                            placeholder="Nama Karyawan"
+                          />
+                        ) : (
+                          <div className="font-bold text-white">{p.employeeName}</div>
+                        )}
                         <div className="text-xs text-slate-500 font-mono mt-0.5">{p.email}</div>
                       </td>
 
